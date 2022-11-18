@@ -1,16 +1,15 @@
 import Nav from '../components/Nav';
 import { GetUser } from '../queries/user';
-import { useQuery } from 'urql';
-import { initUrqlClient } from 'next-urql';
+import { ssrExchange, dedupExchange, cacheExchange, useQuery } from 'urql';
+import { initUrqlClient, withUrqlClient } from 'next-urql';
+import { executeExchange } from '@urql/exchange-execute';
+import data  from '../utils/manual.json';
 
-export default function SSR(props) {
-  console.log('props', props)
-  const [
-    {
-      data,
-    },
-  ] = useQuery({ query: GetUser });
-  const user = data?.post
+const schema = data.data.__schema;
+function SSR(props) {
+  console.log('props', props);
+  const [{ data }] = useQuery({ query: GetUser });
+  const user = data?.post;
   return (
     <>
       <Nav />
@@ -21,14 +20,28 @@ export default function SSR(props) {
 }
 
 export async function getServerSideProps(context) {
-  const client = initUrqlClient({
-    url: "https://graphqlzero.almansi.me/api",
-  }, false /* set to false to disable suspense */);
+  const ssrCache = ssrExchange({ isClient: false });
+  const client = initUrqlClient(
+    {
+      url: 'https://graphqlzero.almansi.me/api',
+      exchanges: [
+        dedupExchange,
+        cacheExchange,
+        ssrCache,
+        executeExchange({ schema }),
+      ],
+    },
+    false
+  );
 
-  const result = await client.query(GetUser, {}).toPromise();
+  await client.query(GetUser, {}).toPromise();
   return {
     props: {
-      user: result.data.post
+      urqlState: ssrCache.extractData(),
     },
   };
 }
+
+export default withUrqlClient((ssr) => ({
+  url: 'https://graphqlzero.almansi.me/api',
+}))(SSR);
