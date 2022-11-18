@@ -1,9 +1,9 @@
 import Nav from '../components/Nav';
 import { GetUser } from '../queries/user';
-import { useQuery } from 'urql';
-import { initUrqlClient } from 'next-urql';
+import {ssrExchange, dedupExchange, cacheExchange, fetchExchange,  useQuery } from 'urql';
+import { initUrqlClient, withUrqlClient } from 'next-urql';
 
-export default function SSG(props) {
+function SSG(props) {
   console.log('props', props)
   const [
     {
@@ -21,14 +21,27 @@ export default function SSG(props) {
 }
 
 export async function getStaticProps(context) {
-  const client = initUrqlClient({
-    url: "https://graphqlzero.almansi.me/api",
-  }, false /* set to false to disable suspense */);
+  const ssrCache = ssrExchange({ isClient: false });
+  const client = initUrqlClient(
+    {
+      url: "https://graphqlzero.almansi.me/api",
+      exchanges: [dedupExchange, cacheExchange, ssrCache, fetchExchange],
+    },
+    false
+  );
 
-  const result = await client.query(GetUser, {}).toPromise();
+  await client.query(GetUser, {}).toPromise();
   return {
     props: {
-      user: result.data.post
+      urqlState: ssrCache.extractData(),
     },
+    revalidate:600
   };
 }
+
+export default withUrqlClient(
+  ssr => ({
+    url: "https://graphqlzero.almansi.me/api",
+  })
+  // Cannot specify { ssr: true } here so we don't wrap our component in getInitialProps
+)(SSG);
