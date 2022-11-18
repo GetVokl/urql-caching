@@ -1,8 +1,10 @@
 import Nav from '../components/Nav';
 import { GetUser } from '../queries/user';
 import { useQuery } from 'urql';
+import { initUrqlClient } from 'next-urql';
 
-export default function SSG() {
+export default function SSG(props) {
+  console.log('props', props)
   const [
     {
       data,
@@ -19,9 +21,14 @@ export default function SSG() {
 }
 
 export async function getStaticProps(context) {
+  const client = initUrqlClient({
+    url: "https://graphqlzero.almansi.me/api",
+  }, false /* set to false to disable suspense */);
+
+  const result = await client.query(GetUser, {}).toPromise();
   return {
     props: {
-      name: 'chatterjee',
+      user: result.data.post
     },
   };
 }
