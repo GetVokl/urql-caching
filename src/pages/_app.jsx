@@ -1,5 +1,9 @@
+import { withUrqlClient } from 'next-urql';
+
+
+
 function MyApp({ Component, pageProps }) {
   return <Component {...pageProps} />
 }
 
-export default MyApp
+export default withUrqlClient(() => ({ url: "https://graphqlzero.almansi.me/api" }))(MyApp);
